@@ -1,0 +1,10 @@
+[Unit]
+Description=JACK
+After=sound.target
+
+[Service]
+User=h4us
+ExecStart=/usr/local/bin/jackd -m -R -p 32 -T -d alsa -d hw:0 -n 3 -i 2 -o 2 -p 1024 -P -r 44100 -s
+
+[Install]
+WantedBy=multi-user.target
