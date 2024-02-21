@@ -36,7 +36,6 @@ import { ReadlineParser } from '@serialport/parser-readline';
 
 import { Server, Client } from 'node-osc';
 const oscs = new Server(OSC_HOST_PORT, '0.0.0.0');
-const oscc = new Client(OSC_DEST_IP, OSC_DEST_PORT);
 const oscr = new Client(OSC_REMOTE_IP, OSC_REMOTE_PORT);
 
 const port = parseInt(process.env.PORT, 10) || 3000;
@@ -233,13 +232,11 @@ const runApp = async () => {
             break;
         }
 
-
         if (DataRecieved3) {
           let p = findPeaks();
           p = p.map((el) => Object.values(el));
           p = p.flat();
           // console.log('/peaks', p); // - index1, value1, index2, value2...
-          oscc.send('/peaks', p);
           oscr.send('/peaks', p);
         }
       }
@@ -250,17 +247,11 @@ const runApp = async () => {
   /*
    * OSC Responder API, TODO
    */
-  oscs.on('message', (msg) => {
-    const [tag, ...data] = msg;
+  // oscs.on('message', (msg) => {
+  //   const [tag, ...data] = msg;
 
-    // console.log('Incomming OSC messages: ', tag, data);
-    if (tag == '/shock' || tag == '/acc/x') {
-      if (data.length > 0 && data[0] > 0) {
-        console.log('Incomming OSC messages: ', tag, data, new Date(), `${(Date.now() - start) / 1000} sec`);
-      }
-    }
-    // oscc.send('/acc/x', data);
-  });
+  //   console.log('Incomming OSC messages: ', tag, data);
+  // });
 
   /*
    * HTTP API Routes
@@ -308,7 +299,6 @@ const runApp = async () => {
   }
 
   console.info(`Started server on port ${port}`);
-  console.info('OSC internal:', OSC_DEST_IP, OSC_DEST_PORT);
   console.info('OSC remote:', OSC_REMOTE_IP, OSC_REMOTE_PORT);
 
 };

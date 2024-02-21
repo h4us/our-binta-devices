@@ -20,18 +20,18 @@ const float magdwickinterval = 1000 / MagdwickHz;
 #define Addr_Gyro 0x69
 #define Addr_Mag 0x13
 
-float ax = 0.00;
-float ay = 0.00;
-float az = 0.00;
-float gx = 0.00;
-float gy = 0.00;
-float gz = 0.00;
-int mx = 0.00;
-int my = 0.00;
-int mz = 0.00;
-float pitch = 0.00;
-float roll = 0.00;
-float yaw = 0.00;
+float ax = 0.0F;
+float ay = 0.0F;
+float az = 0.0F;
+float gx = 0.0F;
+float gy = 0.0F;
+float gz = 0.0F;
+int mx = 0.0F;
+int my = 0.0F;
+int mz = 0.0F;
+float pitch = 0.0F;
+float roll = 0.0F;
+float yaw = 0.0F;
 
 float g = 0.0F;
 
@@ -304,16 +304,28 @@ void setup()
     }
   }
 
-  OscWiFi.publish(osc_dest, 12000, "/acc/x", ax);
-  OscWiFi.publish(osc_dest, 12000, "/acc/y", ay);
-  OscWiFi.publish(osc_dest, 12000, "/acc/z", az);
-  OscWiFi.publish(osc_dest, 12000, "/shock", g);
+  // OscWiFi.publish(osc_dest, 12000, "/btl/accel", ax, ay, az)->setFrameRate(24.f);
+  // OscWiFi.publish(osc_dest, 12000, "/btl/gyro", gx, gy, gz)->setFrameRate(24.f);
+  // OscWiFi.publish(osc_dest, 12000, "/btl/ahrs", pitch, roll, yaw)->setFrameRate(24.f);
+  // OscWiFi.publish(osc_dest, 12000, "/btl/shock", g)->setFrameRate(24.f);
 
   Serial.println("Enter loop");
 }
 
 void loop()
 {
+  float p_ax = ax;
+  float p_ay = ay;
+  float p_az = az;
+  float p_g = g;
+
+  float p_gx = gx;
+  float p_gy = gy;
+  float p_gz = gz;
+
+  float p_pitch = pitch;
+  float p_roll  = roll;
+  float p_yaw   = yaw;
 
   if (!digitalRead(PIN_BUTTON)) {
     delay(100);
@@ -376,7 +388,20 @@ void loop()
       Serial.println(tmp_str);
     }
   } else {
-    g = sqrt(pow(ax, 2) + pow(ay, 2) + pow(az, 2)) * 1000;
+    g = sqrt(pow(ax, 2) + pow(ay, 2) + pow(az, 2));
+
+    if (abs(g - p_g) > 0.1) {
+      OscWiFi.send(osc_dest, 12000, "/btl/accel", ax, ay, az);
+      OscWiFi.send(osc_dest, 12000, "/btl/shock", g);
+    }
+
+    if (abs(gx - p_gx) > 1.0 || abs(gy - p_gy) > 1.0 || abs(gz - p_gz) > 1.0) {
+      OscWiFi.send(osc_dest, 12000, "/btl/gyro", gx, gy, gz);
+    }
+
+    if (abs(pitch - p_pitch) > 1.0 || abs(roll - p_roll) > 1.0 || abs(yaw - p_yaw) > 1.0) {
+      OscWiFi.send(osc_dest, 12000, "/btl/ahrs", pitch, roll, yaw);
+    }
 
     OscWiFi.update();
     // delay(33);

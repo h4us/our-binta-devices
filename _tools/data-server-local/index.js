@@ -108,11 +108,12 @@ const runApp = async () => {
   const sp = await SerialPort.list();
   console.info('Available serial ports, ', sp);
 
-  const rp2040 = sp.filter((el) => (
-    (/^Raspberry.*/.test(el.manufacturer) || el.vendorId == '2e8a')
-    || (/^Microsoft.*/.test(el.manufacturer) || el.vendorId == '2e8a')
-  ));
+  // const rp2040 = sp.filter((el) => (
+  //   (/^Raspberry.*/.test(el.manufacturer) || el.vendorId == '2e8a')
+  //   || (/^Microsoft.*/.test(el.manufacturer) || el.vendorId == '2e8a')
+  // ));
 
+  const rp2040 = false;
   const default_sp = sp.filter((el) => el.path == DEFAULT_SERIALPORT_PATH);
 
   if (rp2040 && rp2040.length > 0) {
@@ -253,12 +254,16 @@ const runApp = async () => {
   oscs.on('message', (msg) => {
     const [tag, ...data] = msg;
 
-    // console.log('Incomming OSC messages: ', tag, data);
-    if (tag == '/shock' || tag == '/acc/x') {
-      if (data.length > 0 && data[0] > 0) {
-        console.log('Incomming OSC messages: ', tag, data, new Date(), `${(Date.now() - start) / 1000} sec`);
-      }
-    }
+    console.log('Incomming OSC messages: ', tag, data, new Date(), `${(Date.now() - start) / 1000} sec`);
+
+    // if (
+    //   tag == '/analog'
+    // ) {
+    //   if (data.length > 0 && data[0] > 0) {
+    //     console.log('Incomming OSC messages: ', tag, data, new Date(), `${(Date.now() - start) / 1000} sec`);
+    //   }
+    // }
+
     // oscc.send('/acc/x', data);
   });
 

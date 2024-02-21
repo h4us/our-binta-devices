@@ -6,12 +6,15 @@
 #include <ArduinoJson.h>
 
 // - TODO:
-// #define _TARGET_M5_STICKC_PLUS2_
-#define _TARGET_M5_STICKC_PLUS_
+#define _TARGET_M5_STICKC_PLUS2_
+// #define _TARGET_M5_STICKC_PLUS_
 
 #if defined(_TARGET_M5_STICKC_PLUS2_)
 #include <M5StickCPlus2.h>
 #define M5S StickCP2
+#include <MadgwickAHRS.h>
+Madgwick MadgwickFilter;
+#define MagdwickHz 200
 #endif
 
 #if defined(_TARGET_M5_STICKC_PLUS_)
@@ -36,11 +39,21 @@ float gyroX = 0.0F;
 float gyroY = 0.0F;
 float gyroZ = 0.0F;
 
+float magX = 0.0F;
+float magY = 0.0F;
+float magZ = 0.0F;
+
 float pitch = 0.0F;
 float roll  = 0.0F;
 float yaw   = 0.0F;
 
+int v1 = 0;
+int touch_elapsed = 0;
+
 int tgl = 0;
+
+const float Vref = 3.3;
+const int ADC_PIN = GPIO_NUM_36;
 
 bool readConfig() {
   String file_content = readFile(config_filename);
@@ -122,6 +135,8 @@ void setup() {
 
   Serial.begin(115200);
 
+  pinMode(ADC_PIN, INPUT);
+
   if (!LittleFS.begin(false)) {
     Serial.println("LITTLEFS Mount failed");
     Serial.println("Did not find filesystem; starting format");
@@ -162,10 +177,12 @@ void setup() {
       delay(500);
     }
 
-    OscWiFi.publish(osc_dest, 12000, "/acc/x", accX);
-    OscWiFi.publish(osc_dest, 12000, "/acc/y", accY);
-    OscWiFi.publish(osc_dest, 12000, "/acc/z", accZ);
-    OscWiFi.publish(osc_dest, 12000, "/shock", g);
+    // TODO:
+    // OscWiFi.publish(osc_dest, 12000, "/stick/accel", accX, accY, accZ)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/gyro", gyroX, gyroY, gyroZ)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/ahrs", pitch, roll, yaw)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/shock", g)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/analog", v1, touch_elapsed)->setFrameRate(24.f);
 
 #if defined(_TARGET_M5_STICKC_PLUS_)
     M5S.Axp.begin();
@@ -173,6 +190,7 @@ void setup() {
     M5S.Imu.Init();
 #else
     M5S.Power.begin();
+    MadgwickFilter.begin(MagdwickHz);
     M5S.Imu.init();
 #endif
   }
@@ -180,6 +198,22 @@ void setup() {
 
 
 void loop() {
+  float p_accX = accX;
+  float p_accY = accY;
+  float p_accZ = accZ;
+  float p_g = g;
+
+  float p_gyroX = gyroX;
+  float p_gyroY = gyroY;
+  float p_gyroZ = gyroZ;
+
+  float p_pitch = pitch;
+  float p_roll  = roll;
+  float p_yaw   = yaw;
+
+  int p_v1 = v1;
+  int p_touch_elapsed = touch_elapsed;
+
   M5S.update();
 
   if (M5S.BtnA.wasPressed()) {
@@ -252,11 +286,44 @@ void loop() {
   } else {
     M5S.Imu.getGyroData(&gyroX, &gyroY, &gyroZ);
     M5S.Imu.getAccelData(&accX, &accY, &accZ);
-    // - TODO:
-    // M5S.Imu.getAhrsData(&pitch,&roll,&yaw);
-    // M5S.Imu.getMag(&pitch,&roll,&yaw);
 
-    g = sqrt(pow(accX, 2) + pow(accY, 2) + pow(accZ, 2)) * 1000;
+#if defined(_TARGET_M5_STICKC_PLUS_)
+    M5S.Imu.getAhrsData(&pitch, &roll, &yaw);
+#else
+    M5S.Imu.getMag(&magX, &magY, &magZ);
+    MadgwickFilter.update(gyroX, gyroY, gyroZ, accX, accY, accZ, magX, magY, magZ);
+    pitch = MadgwickFilter.getPitch();
+    roll = MadgwickFilter.getRoll();
+    yaw = MadgwickFilter.getYaw();
+#endif
+
+    g = sqrt(pow(accX, 2) + pow(accY, 2) + pow(accZ, 2));
+
+    v1 = analogRead(ADC_PIN);
+    if (v1 > 3300) {
+      touch_elapsed = min(touch_elapsed + 1,  100000000);
+    } else {
+      touch_elapsed = 0;
+    }
+
+    if (abs(g - p_g) > 0.1) {
+      OscWiFi.send(osc_dest, 12000, "/accel", accX, accY, accZ);
+      OscWiFi.send(osc_dest, 12000, "/shock", g);
+    }
+
+    if (abs(gyroX - p_gyroX) > 3.0 || abs(gyroY - p_gyroY) > 3.0 || abs(gyroZ - p_gyroZ) > 3.0) {
+      OscWiFi.send(osc_dest, 12000, "/gyro", gyroX, gyroY, gyroZ);
+    }
+
+    if (abs(pitch - p_pitch) > 1.0 || abs(roll - p_roll) > 1.0 || abs(yaw - p_yaw) > 1.0) {
+      OscWiFi.send(osc_dest, 12000, "/ahrs", pitch, roll, yaw);
+    }
+
+    if (abs(v1 - p_v1) > 2.0 || (touch_elapsed != p_touch_elapsed) ) {
+      OscWiFi.send(osc_dest, 12000, "/analog", v1, touch_elapsed);
+    }
+
+    OscWiFi.update();
 
     if (tgl == 0) {
       M5S.Lcd.setCursor(30, 45);
@@ -272,10 +339,9 @@ void loop() {
       M5S.Lcd.setCursor(30, 105);
       M5S.Lcd.printf("  %.1f", g);
       M5S.Lcd.setCursor(100, 105);
-      M5S.Lcd.print("mG");
+      M5S.Lcd.print("G(vec)");
     }
 
-    OscWiFi.update();
     delay(33);
   }
 }

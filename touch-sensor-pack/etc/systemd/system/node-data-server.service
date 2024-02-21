@@ -4,7 +4,7 @@ After=sound.target
 
 [Service]
 User=h4us
-WorkingDirectory=/home/h4us/our-binta-devices/multi-sensor-pack/data-server
+WorkingDirectory=/home/h4us/our-binta-devices/touch-sensor-pack/data-server
 ExecStart=/usr/bin/node index.js
 
 [Install]

@@ -1,3 +1,4 @@
+
 Server.local.boot;
 Server.local.makeGui;
 Server.local.scope;
@@ -6,11 +7,25 @@ Server.killAll;
 thisProcess.openPorts; // list all open ports
 thisProcess.openUDPPort(12000); // attempt to open 1121
 
-// TODO..
-a = Buffer.read(Server.local, "gonzo-binta/naze_sound/m1.wav");
+a = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/m1.wav");
+b = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/m2.wav");
+c = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/m3.wav");
+d = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/m4.wav");
+e = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/m5.wav");
+f = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/mjk/1.wav");
+g = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/mjk/2.wav");
+h = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/mjk/3.wav");
+i = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/mjk/4.wav");
+j = Buffer.read(Server.local, "/home/inafact/Dropbox/Public/gonzo-binta/naze_sound/mjk/5.wav");
 
 /*
 { (PlayBuf.ar(1, b, loop: 0) * 0.5).dup }.play;
+{ (PlayBuf.ar(1, c, loop: 0) * 0.5).dup }.play;
+{ (PlayBuf.ar(1, d, loop: 0) * 0.5).dup }.play;
+{ (PlayBuf.ar(1, e, loop: 0) * 0.5).dup }.play;
+{ (PlayBuf.ar(1, f, loop: 0) * 0.5).dup }.play;
+{ (PlayBuf.ar(1, g, loop: 0) * 0.5).dup }.play;
+{ (PlayBuf.ar(1, h, loop: 0) * 0.5).dup }.play;
 */
 
 OSCdef(\r0, {
@@ -52,7 +67,9 @@ OSCdef(\r0, {
 
 }, '/shock', nil, 12000);
 
-OSCdef(\r0).free;
+OSCdef(\r0).free
+
+
 
 Ndef(\r1p1, {| freq = 440, amp = 0.5 |
 	SinOsc.ar(freq) ! 2;
@@ -110,6 +127,7 @@ Ndef(\r1p4).play;
 Ndef(\r1p4).clear;
 
 // Ndef(\r1p4).stop;
+
 
 OSCdef(\r1, {
     |msg, time, addr, recvPort|
@@ -171,7 +189,9 @@ OSCdef(\r3, {
 
 }, '/btl/ahrs', nil, 12000);
 
-OSCdef(\p1, {
+
+
+OSCdef(\r1, {
 	|msg, time, addr, recvPort|
 
     if (addr.ip == "192.168.11.3", {
@@ -203,8 +223,9 @@ OSCdef(\p1, {
 
 }, '/peaks', nil, 12001);
 
-OSCdef(\p1).free
+OSCdef(\r1).free
 
+Ndef(\r1p3).fadeTime=0.01
 
 OSCdef(\test2, {
 	|msg, time, addr, recvPort|
@@ -225,6 +246,25 @@ OSCdef(\test2, {
 	})<
 
 }, '/acc/x', nil, 12001);
+
+
+OSCdef(\test, {
+	|msg, time, addr, recvPort|
+
+	addr.postln;
+	msg.postln;
+}, '/shock', nil, 12000);
+
+
+OSCdef(\test).free
+
+
+OSCdef(\test, {
+	|msg, time, addr, recvPort|
+
+	addr.postln;
+	msg.postln;
+}, '/shock', nil, 12000);
 
 
 o = OSCFunc({
@@ -255,3 +295,45 @@ Ndef(\vz).play;
 Ndef(\vz).gui;
 Ndef(\vz).scope;
 
+
+j = OSCFunc({
+	arg msg, time, addr, recvPort;
+	[msg, time, addr, recvPort].postln;
+	// (msg[1].abs * 1000).postln;
+
+	{ SinOsc.ar(440) * EnvGen.kr(Env.perc)}.play;
+	// Ndef(\test2).xset(\freq, msg[1] % 2);
+}, '/touch/ch0', n);
+
+j.free;
+
+k = OSCFunc({
+	arg msg, time, addr, recvPort;
+	[msg, time, addr, recvPort].postln;
+	// (msg[1].abs * 1000).postln;
+
+	{ SinOsc.ar(880) * EnvGen.kr(Env.perc)}.play;
+	// Ndef(\test2).xset(\freq, msg[1] % 2);
+}, '/touch/ch8', n);
+
+k.free;
+
+l = OSCFunc({
+	arg msg, time, addr, recvPort;
+	[msg, time, addr, recvPort].postln;
+	// (msg[1].abs * 1000).postln;
+
+	//{ SinOsc.ar(880) * EnvGen.kr(Env.perc)}.play;
+	// Ndef(\test2).xset(\freq, msg[1] % 2);
+}, '/analog', n);
+
+l.free;
+
+
+Ndef(\test, { |freq = 440| SinOsc.ar(freq) ! 2; });
+Ndef(\test).play
+
+Ndef(\test).xset(\freq, 20)
+
+Ndef(\test2, { |freq = 440, decay = 0| (SinOsc.ar(freq * decay))) ! 2; });
+Ndef(\test2).play
