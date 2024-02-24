@@ -23,7 +23,7 @@ Server.local.waitForBoot.do({
     var ww = 1080;
     var wh = 240;
 
-    var default_sf = File.readAllString("config.json".standardizePath).parseJSON.at("soundfiles");
+    var default_sf = File.readAllString(Document.current.dir ++ "/config.json").parseJSON.at("soundfiles");
 
     default_sf.do({|path, pathidx|
         filer = filer ++ SoundFile.collect(path);
@@ -67,7 +67,7 @@ Server.local.waitForBoot.do({
             dir.at(target.asSymbol).postln;
         });
     };
-    
+
     filer.do({|el, i|
         dir.put(el.path.asSymbol, (index:i, buffered: 0));
         fn.value(el.path, 1);
