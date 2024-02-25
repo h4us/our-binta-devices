@@ -19,10 +19,10 @@ int touch_elapsed = 0;
 int tgl = 0;
 
 #define PIN_BUTTON 0
-#define ADC_PIN GPIO_NUM_3
+#define ADC_PIN GPIO_NUM_1
 
 const float Vref = 3.3;
-// const int ADC_PIN = GPIO_NUM_3;
+// const int ADC_PIN = GPIO_NUM_1;
 
 bool readConfig() {
   String file_content = readFile(config_filename);
@@ -117,6 +117,12 @@ void setup() {
     }
 
     Serial.println("ssid = " + ssid + ", pw = " + pw + ", osc_dest = " + osc_dest);
+  }
+
+  WiFi.begin(ssid, pw);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
   }
 }
 
