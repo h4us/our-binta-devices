@@ -10,6 +10,7 @@ const String config_filename = "/config.json";
 String ssid = "ssid";
 String pw = "password";
 String osc_dest = "192.168.1.1";
+int p_threshold = 3300;
 
 int appMode = 1;
 
@@ -56,6 +57,7 @@ bool saveConfig() {
   doc["ssid"] = ssid;
   doc["pw"] = pw;
   doc["osc_dest"] = osc_dest;
+  doc["p_threshold"] = p_threshold;
 
   String tmp = "";
   serializeJson(doc, tmp);
@@ -116,14 +118,32 @@ void setup() {
       }
     }
 
-    Serial.println("ssid = " + ssid + ", pw = " + pw + ", osc_dest = " + osc_dest);
+    Serial.println("ssid = " + ssid + ", pw = " + pw + ", osc_dest = " + osc_dest + ", p_threshold = " + p_threshold);
   }
 
   WiFi.begin(ssid, pw);
 
+  int timeout = 0;
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    Serial.println("Waiting connection..");
+    timeout ++;
+    if (timeout > 20) {
+      break;
+    }
   }
+
+  OscWiFi.subscribe(12000, "/p_threshold", [&](int& th) {
+    p_threshold = th;
+
+    if (saveConfig()) {
+      OscWiFi.send(osc_dest, 12000, "/reply", "udated threshold");
+      Serial.println("ssid = " + ssid + ", pw = " + pw + ", osc_dest = " + osc_dest + ", p_threshold = " + p_threshold);
+    }
+  });
+
+   Serial.println("Enter loop");
 }
 
 
@@ -194,7 +214,7 @@ void loop() {
   } else {
     v1 = analogRead(ADC_PIN);
 
-    if (v1 > 3300) {
+    if (v1 > p_threshold) {
       touch_elapsed = min(touch_elapsed + 1,  100000000);
     } else {
       touch_elapsed = 0;
@@ -205,5 +225,6 @@ void loop() {
     }
 
     OscWiFi.update();
+    delay(33);
   }
 }
