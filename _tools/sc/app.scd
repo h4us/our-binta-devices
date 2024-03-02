@@ -1,9 +1,12 @@
 //
 /* TODO: modular */
 //
+
+Server.default.options.device = "ASIO : MOTU Gen 5";
+Server.default.options.sampleRate = 48000;
 Server.local.boot.makeGui;
 NdefMixer(Server.local);
-Server.local.scope(2);
+// Server.local.scope(2);
 
 (
 //
@@ -15,7 +18,7 @@ Spec.add(\busindex, ControlSpec(0, 99, step:1));
 Spec.add(\loopgate, ControlSpec(-10, 10, \lin));
 Spec.add(\startPos, \unipolar);
 Spec.add(\endPos, \unipolar);
-Spec.add(\widerate, ControlSpec(-5, 5, \lin));
+Spec.add(\widerate, ControlSpec(-100, 100, \lin));
 
 Server.local.waitForBoot.do({
     var filer = Array();
@@ -101,11 +104,14 @@ Server.local.waitForBoot.do({
     info = EZText(layout, 300@40, "info:", {|ez| ez.postln;}, ["-"], true);
     sender = EZText(layout, 300@40, "sendTo:", {|ez|
         dir.at(lview.items.at(lview.value).asSymbol).at(\bufnum).postln;
-        Ndef(ez.value.at(0).asSymbol).set(\bufnum, dir.at(lview.items.at(lview.value).asSymbol).at(\bufnum));
+        ObjectTable.put(\oneshot_buf, dir.at(lview.items.at(lview.value).asSymbol).at(\bufnum));
+        // Ndef(ez.value.at(0).asSymbol).set(\bufnum, dir.at(lview.items.at(lview.value).asSymbol).at(\bufnum));
+        ez.value.postln;
     }, ["-"], true);
 
-    4.do({|i|
-        Ndef(("player_0_"++i).asSymbol, {|amp = 0.5, bufnum = 0, widerate = 1, startPos = 0, endPos = 1,  gain = 1, preamp = 1, pan = 0|
+    4.do({| i |
+        //
+        Ndef(("r1p"++(i+1)).asSymbol, {|amp = 0.5, bufnum = 0, widerate = 1, startPos = 0, endPos = 1,  gain = 1, preamp = 1, pan = 0|
             var bo = BufRd.ar(
                 1, bufnum,
                 Phasor.ar(0, BufRateScale.kr(bufnum) * widerate, BufFrames.kr(bufnum) * startPos, BufFrames.kr(bufnum) * endPos),
@@ -113,9 +119,22 @@ Server.local.waitForBoot.do({
             );
             Pan2.ar(bo * amp * VarLag.kr(preamp, 0.5) * gain, pan);
         });
-        Ndef(("player_0_"++i).asSymbol).play(10);
-        Ndef(("player_0_"++i).asSymbol).set(\bufnum, dir.at(filer.at(i).path.asSymbol).at(\bufnum));
+        Ndef(("r1p"++(i+1)).asSymbol).play(10);
+        Ndef(("r1p"++(i+1)).asSymbol).set(\bufnum, dir.at(filer.at(i).path.asSymbol).at(\bufnum), \amp, 0);
     });
+
+
+    [50, 60, 70, 80].do({| f, idx |
+        Ndef(("subase"++(idx + 1)).asSymbol, {| freq = 50, amp = 0.4, gain = 0.5, pan = 0 |
+            // SinOsc.ar(freq) * gain * Slew.kr(amp, 0.01, 0.01) ! 2;
+            Pan2.ar(SinOsc.ar(freq) * gain * amp, pan);
+        });
+        Ndef(("subase"++(idx + 1)).asSymbol).play(10);
+        Ndef(("subase"++(idx + 1)).asSymbol).set(\freq, f, \amp, 0);
+    });
+
+    ObjectTable.put(\oneshot_buf, 10);
+    ObjectTable.at(\oneshot_buf);
 
     Routine({
         3.wait;
@@ -125,7 +144,8 @@ Server.local.waitForBoot.do({
 
         Ndef(\mbus).play;
         4.do({|i|
-            Ndef(("player_0_"++i).asSymbol).pause;
+            Ndef(("r1p"++(i+1)).asSymbol).pause;
+            Ndef(("subase"++(i + 1)).asSymbol).pause;
         })
     }).play;
 });
