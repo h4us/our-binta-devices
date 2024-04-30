@@ -1,12 +1,17 @@
 //
 /* TODO: modular */
 //
+// Server.killAll;
 
+(
 Server.default.options.device = "ASIO : MOTU Gen 5";
 Server.default.options.sampleRate = 48000;
+Server.default.options.numOutputBusChannels = 4;
+Server.default.options.numInputBusChannels = 20;
 Server.local.boot.makeGui;
 NdefMixer(Server.local);
 // Server.local.scope(2);
+)
 
 (
 //
@@ -14,7 +19,8 @@ NdefMixer(Server.local);
 //
 
 Spec.add(\bufnum, ControlSpec(0, 200, \lin, 1, 0));
-Spec.add(\busindex, ControlSpec(0, 99, step:1));
+Spec.add(\busindex, ControlSpec(0, 511, step: 1));
+Spec.add(\ioindex, ControlSpec(0, Server.default.options.numInputBusChannels - 1, step: 1));
 Spec.add(\loopgate, ControlSpec(-10, 10, \lin));
 Spec.add(\startPos, \unipolar);
 Spec.add(\endPos, \unipolar);
@@ -27,6 +33,8 @@ Server.local.waitForBoot.do({
     var wh = 240;
 
     var default_sf = File.readAllString(Document.current.dir ++ "/config.json").parseJSON.at("soundfiles");
+    var privateBusIndex = Server.default.options.numOutputBusChannels + Server.default.options.numInputBusChannels;
+    var submixIndex = privateBusIndex + 100;
 
     default_sf.do({|path, pathidx|
         filer = filer ++ SoundFile.collect(path);
@@ -119,18 +127,28 @@ Server.local.waitForBoot.do({
             );
             Pan2.ar(bo * amp * VarLag.kr(preamp, 0.5) * gain, pan);
         });
-        Ndef(("r1p"++(i+1)).asSymbol).play(10);
+        Ndef(("r1p"++(i+1)).asSymbol).play(privateBusIndex);
         Ndef(("r1p"++(i+1)).asSymbol).set(\bufnum, dir.at(filer.at(i).path.asSymbol).at(\bufnum), \amp, 0);
     });
-
 
     [50, 60, 70, 80].do({| f, idx |
         Ndef(("subase"++(idx + 1)).asSymbol, {| freq = 50, amp = 0.4, gain = 0.5, pan = 0 |
             // SinOsc.ar(freq) * gain * Slew.kr(amp, 0.01, 0.01) ! 2;
             Pan2.ar(SinOsc.ar(freq) * gain * amp, pan);
         });
-        Ndef(("subase"++(idx + 1)).asSymbol).play(10);
+        Ndef(("subase"++(idx + 1)).asSymbol).play(privateBusIndex);
         Ndef(("subase"++(idx + 1)).asSymbol).set(\freq, f, \amp, 0);
+    });
+
+    4.do({| idx |
+        Ndef(("pf"++(idx + 1)).asSymbol, {| ioindex = 0, amp = 1.0 |
+            var ioin = SoundIn.ar(ioindex);
+            var rmsd = SendPeakRMS.ar(ioin, cmdName: '/pf'++(idx+1));
+            ioin * amp;
+            // Silent.ar;
+        });
+        Ndef(("pf"++(idx + 1)).asSymbol).play(submixIndex);
+        Ndef(("pf"++(idx + 1)).asSymbol).set(\ioindex, idx);
     });
 
     ObjectTable.put(\oneshot_buf, 10);
@@ -138,11 +156,20 @@ Server.local.waitForBoot.do({
 
     Routine({
         3.wait;
-        Ndef(\mbus, {|gain = 1, amp = 1|
-            [In.ar(10) * gain * amp, In.ar(11) * gain * amp];
-        });
 
-        Ndef(\mbus).play;
+        Ndef(\outmix, {|gain = 1, amp = 1|
+            In.ar(privateBusIndex, 2) * gain * amp;
+        });
+        Ndef(\outmix).play;
+
+        Ndef(\inmix, {|gain = 1, amp = 1, busindex = 0|
+            var submixin = In.ar(busindex) * gain * amp;
+            var rmsd = SendPeakRMS.ar(submixin, 60.0, 2, cmdName: '/pf_submix');
+            submixin;
+        });
+        Ndef(\inmix).play(submixIndex + 2);
+        Ndef(\inmix).set(\ioindex, submixIndex);
+
         4.do({|i|
             Ndef(("r1p"++(i+1)).asSymbol).pause;
             Ndef(("subase"++(i + 1)).asSymbol).pause;
