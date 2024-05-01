@@ -122,3 +122,85 @@ OSCdef(\r4, {
 }, '/btl/shock', nil, 12000);
 
 OSCdef(\r4).clear;
+
+
+
+NetAddr("127.0.0.1", 7701).sendMsg('/1/dmx/71', 25);
+
+///
+Ndef(\test_mul, {|amp = 0.5| SinOsc.ar(120) * amp; });
+
+Ndef(\pf1, {
+	var rmsd = SendPeakRMS.ar(SoundIn.ar(0), cmdName: '/pf1');
+	Silent.ar;
+});
+Ndef(\pf1).play;
+
+OSCdef(\pff, {
+    |msg, time, addr, recvPort|
+
+	if (msg[3] > 0.2, { msg.postln; });
+}, '/pf_submix');
+
+OSCdef(\pff).clear;
+
+Ndef(\pf2, {| amp = 0.5, busindex = 0 | SoundIn.ar(0) * amp; });
+Ndef(\pf3, {| amp = 0.5, busindex = 2, pan = 1 | Pan2.ar(SoundIn.ar(busindex) * amp, pan); });
+Ndef(\pf3).play(24, group: Ndef(\r1p1).group);
+
+Ndef(\mbus).bus.post; Ndef(\mbus).group.postln;
+Ndef(\r1p1).bus.post; Ndef(\r1p1).group.postln;
+Ndef(\r1p2).bus.post; Ndef(\r1p2).group.postln;
+Ndef(\pf2).bus.post; Ndef(\mbus).group.query
+
+RootNode(Server.default).dumpTree;
+
+OSCdef(\touchOSC, {
+    |msg, time, addr, recvPort|
+    msg.postln;
+}, '/1/', nil, 8000);
+
+OSCdef.trace(true, false);
+OSCdef.trace(false);
+'/foo' ++ 10
+
+w = Window.new("Server Levels");
+ServerMeterView.new(Server.default, w, 0@0, 10, 4);
+w.front; // show the window
+
+Quarks.gui
+
+MonitorGui
+
+FreqScope.new(busNum: 124, server: Server.default);
+
+
+NetAddr("192.168.50.219", 12000).sendMsg('/g_threshold', 3.0);> // naze
+NetAddr("192.168.50.219", 12000).sendMsg('/acc_threshold', 4.0); // naze
+NetAddr("192.168.50.219", 12000).sendMsg('/current');
+NetAddr("192.168.50.50", 12000).sendMsg('/preset');
+NetAddr("192.168.50.51", 12000).sendMsg('/preset');
+
+// ARTNET / DMX
+NetAddr("127.0.0.1", 13000).sendMsg('/all', 255, 255, 255, 255);
+NetAddr("127.0.0.1", 13000).sendMsg('/individual', 10, 10, 10, 10, 10);
+
+OSCdef(\reply, {
+    |msg, time, addr, recvPort|
+    addr.post;
+	msg.postln;
+}, '/reply', nil, 12000);
+
+
+OSCdef(\acc, {
+    |msg, time, addr, recvPort|
+    addr.post;
+	msg.postln;
+}, '/accel', nil, 12000);
+
+
+OSCdef(\gg, {
+    |msg, time, addr, recvPort|
+    addr.post;
+	msg.postln;
+}, '/shock', nil, 12000);
