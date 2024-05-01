@@ -5,9 +5,12 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
-// - TODO:
+// - TODO: compile target switch
 #define _TARGET_M5_STICKC_PLUS2_
 // #define _TARGET_M5_STICKC_PLUS_
+
+// - analogRead enable / disable switch
+// #define _USE_ANALOG_READ_
 
 #if defined(_TARGET_M5_STICKC_PLUS2_)
 #include <M5StickCPlus2.h>
@@ -28,8 +31,15 @@ String ssid = "ssid";
 String pw = "password";
 String osc_dest = "192.168.1.1";
 
+float acc_threshold = 2.0;
+float gyro_threshold = 2.0;
+float ahrs_threshold = 1.0;
+float g_threshold = 0.5;
+
+// - normal mode OR config mode
 int appMode = 1;
 
+// - IMU
 float accX = 0.0F;
 float accY = 0.0F;
 float accZ = 0.0F;
@@ -47,9 +57,11 @@ float pitch = 0.0F;
 float roll  = 0.0F;
 float yaw   = 0.0F;
 
+// - Analog / Pressure
 int v1 = 0;
 int touch_elapsed = 0;
 
+// - LCD ON/OFF state
 int tgl = 0;
 
 const float Vref = 3.3;
@@ -78,6 +90,15 @@ bool readConfig() {
   pw = _pw;
   osc_dest = _osc_dest;
 
+  const float _acc_threshold = doc["acc_t"];
+  const float _gyro_threshold = doc["gyro_t"];
+  const float _ahrs_threshold = doc["ahrs_t"];
+  const float _g_threshold = doc["g_t"];
+  acc_threshold = _acc_threshold;
+  gyro_threshold = _gyro_threshold;
+  ahrs_threshold = _ahrs_threshold;
+  g_threshold = _g_threshold;
+
   return true;
 }
 
@@ -87,6 +108,11 @@ bool saveConfig() {
   doc["ssid"] = ssid;
   doc["pw"] = pw;
   doc["osc_dest"] = osc_dest;
+
+  doc["acc_t"] = acc_threshold;
+  doc["gyro_t"] = gyro_threshold;
+  doc["ahrs_t"] = ahrs_threshold;
+  doc["g_t"] = g_threshold;
 
   String tmp = "";
   serializeJson(doc, tmp);
@@ -135,7 +161,9 @@ void setup() {
 
   Serial.begin(115200);
 
+#if defined(_USE_ANALOG_READ_)
   pinMode(ADC_PIN, INPUT);
+#endif
 
   if (!LittleFS.begin(false)) {
     Serial.println("LITTLEFS Mount failed");
@@ -177,13 +205,6 @@ void setup() {
       delay(500);
     }
 
-    // TODO:
-    // OscWiFi.publish(osc_dest, 12000, "/stick/accel", accX, accY, accZ)->setFrameRate(24.f);
-    // OscWiFi.publish(osc_dest, 12000, "/stick/gyro", gyroX, gyroY, gyroZ)->setFrameRate(24.f);
-    // OscWiFi.publish(osc_dest, 12000, "/stick/ahrs", pitch, roll, yaw)->setFrameRate(24.f);
-    // OscWiFi.publish(osc_dest, 12000, "/stick/shock", g)->setFrameRate(24.f);
-    // OscWiFi.publish(osc_dest, 12000, "/stick/analog", v1, touch_elapsed)->setFrameRate(24.f);
-
 #if defined(_TARGET_M5_STICKC_PLUS_)
     M5S.Axp.begin();
     M5S.Axp.SetPeripherialsPower(0);
@@ -193,6 +214,70 @@ void setup() {
     MadgwickFilter.begin(MagdwickHz);
     M5S.Imu.init();
 #endif
+
+    // TODO:
+    // OscWiFi.publish(osc_dest, 12000, "/stick/accel", accX, accY, accZ)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/gyro", gyroX, gyroY, gyroZ)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/ahrs", pitch, roll, yaw)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/shock", g)->setFrameRate(24.f);
+    // OscWiFi.publish(osc_dest, 12000, "/stick/analog", v1, touch_elapsed)->setFrameRate(24.f);
+
+    OscWiFi.subscribe(12000, "/acc_threshold", [&](float& th) {
+      acc_threshold = th;
+
+      if (saveConfig()) {
+        OscWiFi.send(osc_dest, 12000, "/reply", "UPDATE: acc_threshold", th);
+      }
+    });
+
+    OscWiFi.subscribe(12000, "/gyro_threshold", [&](float& th) {
+      gyro_threshold = th;
+
+      if (saveConfig()) {
+        OscWiFi.send(osc_dest, 12000, "/reply", "UPDATE: gyro_threshold", th);
+      }
+    });
+
+    OscWiFi.subscribe(12000, "/ahrs_threshold", [&](float& th) {
+      ahrs_threshold = th;
+
+      if (saveConfig()) {
+        OscWiFi.send(osc_dest, 12000, "/reply", "UPDATE: ahrs_threshold", th);
+      }
+    });
+
+    OscWiFi.subscribe(12000, "/g_threshold", [&](float& th) {
+      g_threshold = th;
+
+      if (saveConfig()) {
+        OscWiFi.send(osc_dest, 12000, "/reply", "UPDATE: g_threshold", th);
+      }
+    });
+
+    OscWiFi.subscribe(12000, "/current", []() {
+      OscWiFi.send(
+                   osc_dest, 12000,
+                   "/reply",
+                   "CURENT: acc_threshold, gyro_threshold, ahrs_threshold, g_threshold",
+                   acc_threshold, gyro_threshold, ahrs_threshold, g_threshold
+                   );
+    });
+
+    OscWiFi.subscribe(12000, "/preset", []() {
+      acc_threshold = 2.0;
+      gyro_threshold = 2.0;
+      ahrs_threshold = 1.0;
+      g_threshold = 0.5;
+
+      if (saveConfig()) {
+        OscWiFi.send(
+                     osc_dest, 12000,
+                     "/reply",
+                     "PRESET: acc_threshold, gyro_threshold, ahrs_threshold, g_threshold",
+                     acc_threshold, gyro_threshold, ahrs_threshold, g_threshold
+                     );
+      }
+    });
   }
 }
 
@@ -297,31 +382,38 @@ void loop() {
     yaw = MadgwickFilter.getYaw();
 #endif
 
-    g = sqrt(pow(accX, 2) + pow(accY, 2) + pow(accZ, 2));
-
+#if defined(_USE_ANALOG_READ_)
     v1 = analogRead(ADC_PIN);
     if (v1 > 3300) {
       touch_elapsed = min(touch_elapsed + 1,  100000000);
     } else {
       touch_elapsed = 0;
     }
+#endif
 
-    if (abs(g - p_g) > 0.1) {
-      OscWiFi.send(osc_dest, 12000, "/accel", accX, accY, accZ);
-      OscWiFi.send(osc_dest, 12000, "/shock", g);
+    g = sqrt(pow(accX, 2) + pow(accY, 2) + pow(accZ, 2));
+
+    if (abs(g - p_g) > g_threshold) {
+      OscWiFi.send(osc_dest, 12000, "/shock", g, p_g, accX, p_accX, accY, p_accY, accZ, p_accZ);
     }
 
-    if (abs(gyroX - p_gyroX) > 3.0 || abs(gyroY - p_gyroY) > 3.0 || abs(gyroZ - p_gyroZ) > 3.0) {
+    if (abs(accX - p_accX) > acc_threshold || abs(accY - p_accY) > acc_threshold || abs(accZ - p_accZ) > acc_threshold) {
+      OscWiFi.send(osc_dest, 12000, "/accel", accX, accY, accZ);
+    }
+
+    if (abs(gyroX - p_gyroX) > gyro_threshold || abs(gyroY - p_gyroY) > gyro_threshold || abs(gyroZ - p_gyroZ) > gyro_threshold) {
       OscWiFi.send(osc_dest, 12000, "/gyro", gyroX, gyroY, gyroZ);
     }
 
-    if (abs(pitch - p_pitch) > 1.0 || abs(roll - p_roll) > 1.0 || abs(yaw - p_yaw) > 1.0) {
+    if (abs(pitch - p_pitch) > ahrs_threshold || abs(roll - p_roll) > ahrs_threshold || abs(yaw - p_yaw) > ahrs_threshold) {
       OscWiFi.send(osc_dest, 12000, "/ahrs", pitch, roll, yaw);
     }
 
+#if defined(_USE_ANALOG_READ_)
     if (abs(v1 - p_v1) > 2.0 || (touch_elapsed != p_touch_elapsed) ) {
       OscWiFi.send(osc_dest, 12000, "/analog", v1, touch_elapsed);
     }
+#endif
 
     OscWiFi.update();
 
