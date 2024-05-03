@@ -5,9 +5,9 @@ ServerOptions.devices.do({| dev |
 
 Server.default.options.numInputBusChannels
 
-NetAddr("192.168.50.30", 12000).sendMsg(\p_threshold, 500); // tsukahara
-NetAddr("192.168.50.31", 12000).sendMsg(\p_threshold, 3800); // mikajiri
-NetAddr("192.168.50.32", 12000).sendMsg(\p_threshold, 2000); // matsumi
+NetAddr("192.168.50.30", 12000).sendMsg(\p_threshold, 3000); // tsukahara
+NetAddr("192.168.50.31", 12000).sendMsg(\p_threshold, 3000); // mikajiri
+NetAddr("192.168.50.32", 12000).sendMsg(\p_threshold, 3500); // matsumi
 NetAddr("192.168.50.33", 12000).sendMsg(\p_threshold, 3550); // naze
 
 OSCdef(\r1, {
@@ -47,7 +47,7 @@ OSCdef(\r1, {
 
 }, '/analog', nil, 12000);
 
-OSCdef(\r1).clear;
+// OSCdef(\r1).clear;
 
 OSCdef(\r3, {
     |msg, time, addr, recvPort|
@@ -64,7 +64,7 @@ OSCdef(\r3, {
 
 }, '/btl/ahrs', nil, 12000);
 
-OSCdef(\r3).clear;
+// OSCdef(\r3).clear;
 
 OSCdef(\r4, {
     |msg, time, addr, recvPort|
@@ -86,6 +86,45 @@ OSCdef(\r4, {
 
 }, '/btl/shock', nil, 12000);
 
-OSCdef(\r4).clear;
+// OSCdef(\r4).clear;
 
-ObjectTable.put(\oneshot_buf, 11);
+ObjectTable.put(\oneshot_buf, 9);
+
+//
+OSCdef(\pff, {
+    |msg, time, addr, recvPort|
+    // (20 + (msg[4]*300)).asInt.clip(0,255).postln;
+    NetAddr("127.0.0.1", 13000).sendMsg('/all', 255, 255, 255, (20 + msg[4] * 300).asInt.clip(20, 255));
+}, '/pf_submix/peak');
+
+// OSCdef(\pff).clear;
+
+//
+OSCdef(\amf, {
+    |msg, time, addr, recvPort|
+    // msg.postln;
+	NetAddr("127.0.0.1", 13000).sendMsg('/all', 0, 0, 0, msg[3]);
+}, '/pf_submix/reply');
+
+// OSCdef(\amf).clear;
+
+ObjectTable.put(\ruuning, 0);
+
+OSCdef(\gg, {
+    |msg, time, addr, recvPort|
+    msg.postln;
+	ObjectTable.at(\oneshot_buf).postln;
+
+	if (Server.default.statusWatcher.hasBooted && (msg[1] > 8), {
+        [
+			{ Pan2.ar(
+				PlayBuf.ar(1, ObjectTable.at(\oneshot_buf), loop: 0, doneAction: 2) * 0.75,
+				EnvGen.kr(Env.linen(0, 0, 1)) * 2 - 1, doneAction: 2
+			) }
+        ].choose.play;
+		"running!".postln;
+    });
+}, '/shock', nil, 12000);
+
+// OSCdef(\gg).clear;
+
